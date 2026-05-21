@@ -146,39 +146,45 @@ if [ "$1" == "supersede" ]; then
     exit 0
 fi
 
-
 # ---------------------------------------------------------
 # COMMAND: list
 # ---------------------------------------------------------
 if [ "$1" == "list" ]; then
-    # Print a clean, formatted header table
-    printf "%-6s %-40s %-20s %-20s\n" "ID" "TITLE" "STATUS" "AUTHOR"
+    # Print header with fixed width spacing
+    printf "%-6s %-40s %-15s %-20s\n" "ID" "TITLE" "STATUS" "AUTHOR"
     echo "----------------------------------------------------------------------------------------"
     
     for file in "$ADR_DIR"/*.md; do
         [ -e "$file" ] || continue
         
         ID=$(basename "$file" | cut -d'-' -f1)
-        STATUS=$(grep -m 1 "Status:" "$file" | awk -F': ' '{print $2}')
-        AUTHOR=$(grep -m 1 "Author:" "$file" | awk -F': ' '{print $2}')
-        TITLE=$(grep -m 1 "^# ADR" "$file" | cut -d':' -f2- | sed 's/^ //')
         
-        # Max out title display length to prevent table breaking on huge titles
+        STATUS=$(grep -m 1 "\*\*Status:\*\*" "$file" | sed -E 's/.*:[ *]*//' | tr -d '\r')
+        AUTHOR=$(grep -m 1 "\*\*Author:\*\*" "$file" | sed -E 's/.*:[ *]*//' | tr -d '\r')
+        TITLE=$(grep -m 1 "^# " "$file" | sed -E 's/^# ADR [0-9]{4}: //I' | tr -d '\r')
+
+        # Fallback if title parsing completely failed
+        if [ -z "$TITLE" ]; then
+            TITLE=$(basename "$file" | cut -d'-' -f2- | sed 's/\.md//')
+        fi
+        
+        # Max out title display length to keep the table pristine
         if [ ${#TITLE} -gt 38 ]; then
             TITLE="${TITLE:0:35}..."
         fi
 
-        # Colorize status for clear visual tracking
+        # Assign raw colors based on parsed status strings
         if [ "$STATUS" == "Accepted" ]; then
-            STATUS_COL="\033[32m$STATUS\033[0m"      # Green
+            COLOR="\033[32m"      # Green
         elif [ "$STATUS" == "Pending" ]; then
-            STATUS_COL="\033[33m$STATUS\033[0m"       # Yellow
+            COLOR="\033[33m"      # Yellow
         else
-            STATUS_COL="\033[31m$STATUS\033[0m"       # Red (Deprecated)
+            COLOR="\033[31m"      # Red (Deprecated)
         fi
+        RESET="\033[0m"
         
-        # Format columns dynamically (-40 ensures text aligns nicely to the left)
-        printf "%-6s %-40s %-30s %-20s\n" "${ID}" "${TITLE}" "${STATUS_COL}" "${AUTHOR}"
+        # Print columns using fixed widths, applying the color injection block safely
+        printf "%-6s %-40s ${COLOR}%-15s${RESET} %-20s\n" "${ID}" "${TITLE}" "${STATUS}" "${AUTHOR}"
     done
     exit 0
 fi
