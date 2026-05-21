@@ -147,9 +147,19 @@ if [ "$1" == "supersede" ]; then
 fi
 
 # ---------------------------------------------------------
-# COMMAND: list
+# COMMAND: list [filter]
 # ---------------------------------------------------------
 if [ "$1" == "list" ]; then
+    # Capture the optional filter argument (lowercase it for safety)
+    FILTER=$(echo "$2" | tr '[:upper:]' '[:lower:]')
+
+    # Validate input filter if one was passed
+    if [ -n "$FILTER" ] && [ "$FILTER" != "accepted" ] && [ "$FILTER" != "pending" ] && [ "$FILTER" != "deprecated" ]; then
+        echo "Error: Invalid filter '$2'."
+        echo "Usage: ./tools/adr.sh list [accepted | pending | deprecated]"
+        exit 1
+    fi
+
     # Print header with fixed width spacing
     printf "%-6s %-40s %-15s %-20s\n" "ID" "TITLE" "STATUS" "AUTHOR"
     echo "----------------------------------------------------------------------------------------"
@@ -159,31 +169,37 @@ if [ "$1" == "list" ]; then
         
         ID=$(basename "$file" | cut -d'-' -f1)
         
+        # Parse status, author, and title using precise markdown structures
         STATUS=$(grep -m 1 "\*\*Status:\*\*" "$file" | sed -E 's/.*:[ *]*//' | tr -d '\r')
         AUTHOR=$(grep -m 1 "\*\*Author:\*\*" "$file" | sed -E 's/.*:[ *]*//' | tr -d '\r')
         TITLE=$(grep -m 1 "^# " "$file" | sed -E 's/^# ADR [0-9]{4}: //I' | tr -d '\r')
 
-        # Fallback if title parsing completely failed
         if [ -z "$TITLE" ]; then
             TITLE=$(basename "$file" | cut -d'-' -f2- | sed 's/\.md//')
         fi
         
-        # Max out title display length to keep the table pristine
         if [ ${#TITLE} -gt 38 ]; then
             TITLE="${TITLE:0:35}..."
         fi
 
-        # Assign raw colors based on parsed status strings
+        # Convert parsed status to lowercase strictly for filter checking
+        STATUS_LOWER=$(echo "$STATUS" | tr '[:upper:]' '[:lower:]')
+
+        # IF a filter was requested, skip this loop iteration if it doesn't match
+        if [ -n "$FILTER" ] && [ "$STATUS_LOWER" != "$FILTER" ]; then
+            continue
+        fi
+
+        # Assign colors for rendering
         if [ "$STATUS" == "Accepted" ]; then
             COLOR="\033[32m"      # Green
         elif [ "$STATUS" == "Pending" ]; then
             COLOR="\033[33m"      # Yellow
         else
-            COLOR="\033[31m"      # Red (Deprecated)
+            COLOR="\033[31m"      # Red
         fi
         RESET="\033[0m"
         
-        # Print columns using fixed widths, applying the color injection block safely
         printf "%-6s %-40s ${COLOR}%-15s${RESET} %-20s\n" "${ID}" "${TITLE}" "${STATUS}" "${AUTHOR}"
     done
     exit 0
