@@ -1,0 +1,4 @@
+MIT operating system engineering: https://ocw.mit.edu/courses/6-828-operating-system-engineering-fall-2012/
+writing an operating system in rust: https://os.phil-opp.com/
+
+

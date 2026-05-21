@@ -1,0 +1,1 @@
+writing an operating system in rust: https://os.phil-opp.com/
